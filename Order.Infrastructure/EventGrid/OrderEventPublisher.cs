@@ -20,6 +20,7 @@ namespace Order.Infrastructure.EventGrid
                 new Uri(settings.Value.TopicEndpoint),
                 new Azure.AzureKeyCredential(settings.Value.TopicKey));
             _logger = logger;
+            
         }
 
         public async Task PublishOrderCreatedEventAsync(OrderCreatedDto order)
