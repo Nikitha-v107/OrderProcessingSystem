@@ -1,3 +1,5 @@
+using Order.Domain.Enums;
+
 namespace Order.Domain.Models
 {
     public class Order
@@ -7,7 +9,7 @@ namespace Order.Domain.Models
         public required string ProductName { get; set; }
         public required int Quantity { get; set; }
         public required decimal TotalAmount { get; set; }
-        public required string Status { get; set; } = "Created"; // "Created", "Processed"
+        public required OrderStatus Status { get; set; } = OrderStatus.Created; // "Created", "Processed"
         public required DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     }
 }

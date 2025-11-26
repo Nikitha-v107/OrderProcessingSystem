@@ -2,7 +2,7 @@ using Order.Domain.Enums;
 
 namespace Order.Domain.DTOs
 {
-    public class OrderCreatedDto
+    public class OrderDto
     {
         public required string Id { get; set; }
         public required string CustomerName { get; set; }

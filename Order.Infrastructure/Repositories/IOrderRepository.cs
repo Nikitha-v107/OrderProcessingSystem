@@ -1,12 +1,13 @@
 using Order.Domain.Models;
+using Order.Domain.Enums;
 
 namespace Order.Infrastructure.Repositories
 {
     public interface IOrderRepository
     {
-        Task<Order.Domain.Models.Order> GetOrderAsync(string id);
+        Task<Order.Domain.Models.Order?> GetOrderAsync(string id);
         Task<IEnumerable<Order.Domain.Models.Order>> GetOrdersAsync();
         Task AddOrderAsync(Order.Domain.Models.Order order);
-        Task UpdateOrderStatusAsync(string id, string status);
+        Task UpdateOrderStatusAsync(string id, OrderStatus status);
     }
 }

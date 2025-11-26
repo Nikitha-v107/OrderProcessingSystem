@@ -2,6 +2,8 @@ using Microsoft.Azure.Cosmos;
 using Order.Infrastructure.EventGrid;
 using Order.Infrastructure.Repositories;
 using Order.Infrastructure.Settings;
+using Order.Infrastructure.Services;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,9 @@ builder.Services.AddSingleton((provider) =>
 
 builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
 builder.Services.AddSingleton<IOrderEventPublisher, OrderEventPublisher>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+
+builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

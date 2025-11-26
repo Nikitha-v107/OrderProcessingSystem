@@ -1,8 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Order.Domain.DTOs;
 using Order.Domain.Models;
-using Order.Infrastructure.EventGrid;
-using Order.Infrastructure.Repositories;
+using Order.Infrastructure.Services;
+using AutoMapper;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Order.Domain.Exceptions;
+using System.Linq;
 
 namespace Order.Api.Controllers
 {
@@ -10,63 +16,108 @@ namespace Order.Api.Controllers
     [Route("[controller]")]
     public class OrdersController : ControllerBase
     {
-        private readonly IOrderRepository _orderRepository;
-        private readonly IOrderEventPublisher _eventPublisher;
+        private readonly IOrderService _orderService;
+        private readonly IMapper _mapper;
+        private readonly ILogger<OrdersController> _logger;
 
-        public OrdersController(IOrderRepository orderRepository, IOrderEventPublisher eventPublisher)
+        public OrdersController(IOrderService orderService, IMapper mapper, ILogger<OrdersController> logger)
         {
-            _orderRepository = orderRepository;
-            _eventPublisher = eventPublisher;
+            _orderService = orderService;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto createOrderDto)
         {
-            var order = new Order.Domain.Models.Order
+            if (!ModelState.IsValid)
             {
-                Id = Guid.NewGuid().ToString(),
-                CustomerName = createOrderDto.CustomerName,
-                ProductName = createOrderDto.ProductName,
-                Quantity = createOrderDto.Quantity,
-                TotalAmount = createOrderDto.TotalAmount,
-                Status = "Created",
-                CreatedAtUtc = DateTime.UtcNow
-            };
+                _logger.LogWarning("Invalid CreateOrderDto received: {@ModelErrors}", ModelState.Values.SelectMany(v => v.Errors));
+                return BadRequest(ModelState);
+            }
 
-            await _orderRepository.AddOrderAsync(order);
-
-            var orderCreatedDto = new OrderCreatedDto
+            try
             {
-                Id = order.Id,
-                CustomerName = order.CustomerName,
-                ProductName = order.ProductName,
-                Quantity = order.Quantity,
-                TotalAmount = order.TotalAmount,
-                Status = order.Status,
-                CreatedAtUtc = order.CreatedAtUtc
-            };
-
-            await _eventPublisher.PublishOrderCreatedEventAsync(orderCreatedDto);
-
-            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+                var order = await _orderService.CreateOrderAsync(createOrderDto);
+                var orderDto = _mapper.Map<OrderDto>(order);
+                _logger.LogInformation("Order created successfully with ID: {OrderId}", order.Id);
+                return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, orderDto);
+            }
+            catch (ValidationException ex)
+            {
+                _logger.LogWarning(ex, "Validation error creating order: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (InfrastructureException ex)
+            {
+                _logger.LogError(ex, "Infrastructure error creating order.");
+                return StatusCode(500, "An unexpected error occurred while creating the order.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception while creating order.");
+                return StatusCode(500, "An unexpected error occurred.");
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrder(string id)
         {
-            var order = await _orderRepository.GetOrderAsync(id);
-            if (order == null)
+            if (string.IsNullOrWhiteSpace(id))
             {
-                return NotFound();
+                _logger.LogWarning("Invalid ID received for GetOrder.");
+                return BadRequest("Order ID cannot be null or empty.");
             }
-            return Ok(order);
+
+            try
+            {
+                var order = await _orderService.GetOrderByIdAsync(id);
+                var orderDto = _mapper.Map<OrderDto>(order);
+                _logger.LogInformation("Order with ID: {OrderId} retrieved successfully.", id);
+                return Ok(orderDto);
+            }
+            catch (ValidationException ex)
+            {
+                _logger.LogWarning(ex, "Validation error retrieving order with ID: {OrderId}: {Message}", id, ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (NotFoundException ex)
+            {
+                _logger.LogInformation(ex, "Order with ID: {OrderId} not found.", id);
+                return NotFound(ex.Message);
+            }
+            catch (InfrastructureException ex)
+            {
+                _logger.LogError(ex, "Infrastructure error retrieving order with ID: {OrderId}.", id);
+                return StatusCode(500, "An unexpected error occurred while retrieving the order.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception while retrieving order with ID: {OrderId}.", id);
+                return StatusCode(500, "An unexpected error occurred.");
+            }
         }
 
         [HttpGet]
         public async Task<IActionResult> GetOrders()
         {
-            var orders = await _orderRepository.GetOrdersAsync();
-            return Ok(orders);
+            try
+            {
+                var orders = await _orderService.GetAllOrdersAsync();
+                var orderDtos = _mapper.Map<List<OrderDto>>(orders);
+                _logger.LogInformation("Retrieved all orders successfully.");
+                return Ok(orderDtos);
+            }
+            catch (InfrastructureException ex)
+            {
+                _logger.LogError(ex, "Infrastructure error retrieving all orders.");
+                return StatusCode(500, "An unexpected error occurred while retrieving orders.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception while retrieving all orders.");
+                return StatusCode(500, "An unexpected error occurred.");
+            }
         }
     }
 }

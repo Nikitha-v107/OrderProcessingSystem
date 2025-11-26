@@ -6,6 +6,7 @@ using Order.Domain.DTOs;
 using Order.Infrastructure.Repositories;
 using Order.Infrastructure.Settings;
 using System.Text.Json;
+using Order.Domain.Enums;
 
 namespace Order.Worker;
 
@@ -62,7 +63,7 @@ public class Worker : BackgroundService
                     {
                         _logger.LogInformation("Processing Order.Created event for Order ID: {OrderId}", orderCreatedDto.Id);
 
-                        await _orderRepository.UpdateOrderStatusAsync(orderCreatedDto.Id, "Processed");
+                        await _orderRepository.UpdateOrderStatusAsync(orderCreatedDto.Id, OrderStatus.Processed);
                         _logger.LogInformation("Order ID: {OrderId} status updated to Processed.", orderCreatedDto.Id);
                     }
                     else
